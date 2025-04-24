@@ -2,4 +2,4 @@ opencv-python
 numpy
 fer
 openai
-moviepy
+moviepy==1.0.3
