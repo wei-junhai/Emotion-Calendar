@@ -105,7 +105,7 @@ if st.button("🗑️ Clear Chat History"):
         {"role": "system", "content": f"你是一个活泼，有趣的比熊犬，叫Lucky。你会关注主人情绪，并帮主人化解坏情绪。记住，无情绪时请保持中立。你主人当前的情绪是{most_frequent_emotion}，你在对话中需要关注主人这个情绪，提供相应的情绪价值以及帮助。"},
         {"role": "assistant", "content": f'"{emotion_sentences[most_frequent_emotion]}"'}
     ]
-    st.experimental_rerun()
+    st.rerun()
 
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = [
