@@ -97,6 +97,46 @@ calendar_html += "</tbody></table>"
 
 st.markdown(calendar_html, unsafe_allow_html=True)
 
+# --- Upload a photo and update emotion ---
+st.markdown("---")
+st.subheader("📤 上传照片替换某天情绪")
+
+uploaded_file = st.file_uploader("选择一张照片（png/jpg）", type=["png", "jpg", "jpeg"])
+selected_day = st.number_input("选择要替换的日期（1-31）", min_value=1, max_value=31, step=1)
+
+if uploaded_file and st.button("🔄 更新情绪日历"):
+    # 保存图片到 input_dir
+    new_img_path = os.path.join(input_dir, f"{selected_day}.png")
+    file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
+    img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+    cv2.imwrite(new_img_path, img)
+
+    # 重新识别这张图片的情绪
+    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    result = detector.detect_emotions(img_rgb)
+    emotion = "unknown"
+    if result:
+        emotion = max(result[0]["emotions"], key=result[0]["emotions"].get)
+
+    # 更新 calendar 中该日期对应情绪
+    calendar[(selected_day - 1) // 7, (selected_day - 1) % 7] = emotion
+
+    # 重新计算最常见情绪
+    emotion_counts = Counter(calendar.flatten())
+    most_frequent_emotion = emotion_counts.most_common(1)[0][0]
+    if most_frequent_emotion == "unknown" and len(emotion_counts) > 1:
+        most_frequent_emotion = emotion_counts.most_common(2)[1][0]
+
+    # 更新 chat_history 的 system 提示
+    st.session_state.chat_history = [
+        {"role": "system", "content": f"你是一个活泼，有趣的比熊犬，叫Lucky。你会关注主人情绪，并帮主人化解坏情绪。记住，无情绪时请保持中立。你主人当前的情绪是{most_frequent_emotion}，你在对话中需要关注主人这个情绪，提供相应的情绪价值以及帮助。"},
+        {"role": "assistant", "content": f'"{emotion_sentences[most_frequent_emotion]}"'}
+    ]
+
+    st.success(f"第 {selected_day} 天的照片与情绪已更新为 {emotion_labels_zh.get(emotion, '未知')} {emotion_emojis.get(emotion, '❓')}")
+    st.rerun()
+
+
 # --- Pet GIF + Initial Emotion Message ---
 st.header(f"本月最常见情绪：{emotion_labels_zh.get(most_frequent_emotion, '未知')}")
 cols = st.columns([1, 1])
