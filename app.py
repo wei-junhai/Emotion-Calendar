@@ -25,14 +25,25 @@ emotion_emojis = {
     "neutral": "😐", "fear": "😨", "disgust": "🤢", "unknown": "❓"
 }
 emotion_sentences = {
-    "happy": "You're doing great! Keep smiling!",
-    "sad": "It's okay to feel sad. Better days are ahead.",
-    "angry": "Take a deep breath. Find your calm.",
-    "surprise": "Embrace the unexpected moments!",
-    "neutral": "Steady and balanced. Keep going.",
-    "fear": "You're stronger than you think.",
-    "disgust": "It's okay to step back and regroup.",
-    "unknown": "Every day is a new opportunity."
+    "happy": "你看起来很开心，继续保持微笑哦！",
+    "sad": "伤心是正常的情绪，未来会更好。",
+    "angry": "深呼吸一下，冷静一下自己。",
+    "surprise": "惊喜是生活的小确幸呢！",
+    "neutral": "保持平衡很棒，继续加油！",
+    "fear": "你比你想象的更坚强。",
+    "disgust": "有时候躲开让人不适的事也无妨。",
+    "unknown": "每一天都是新的开始。"
+}
+
+emotion_labels_zh = {
+    "happy": "开心",
+    "sad": "伤心",
+    "angry": "生气",
+    "surprise": "惊讶",
+    "neutral": "平静",
+    "fear": "恐惧",
+    "disgust": "厌恶",
+    "unknown": "未知"
 }
 
 # --- Emotion detection for each day ---
@@ -87,7 +98,7 @@ calendar_html += "</tbody></table>"
 st.markdown(calendar_html, unsafe_allow_html=True)
 
 # --- Pet GIF + Initial Emotion Message ---
-st.header(f"本月最常见情绪：{most_frequent_emotion.capitalize()}")
+st.header(f"本月最常见情绪：{emotion_labels_zh.get(most_frequent_emotion, '未知')}")
 cols = st.columns([1, 1])
 with cols[0]:
     gif_candidates = glob.glob(os.path.join(gif_dir, f"{most_frequent_emotion}*.gif"))
