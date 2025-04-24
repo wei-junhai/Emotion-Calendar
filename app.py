@@ -57,11 +57,11 @@ if most_frequent_emotion == "unknown" and len(emotion_counts) > 1:
     most_frequent_emotion = emotion_counts.most_common(2)[1][0]
 
 # --- Title + Message ---
-st.title("📅 Your Emotion Calendar")
+st.title("📅 你的情绪日历")
 
 # --- Elegant Calendar Table ---
 # Weekday labels
-weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+weekdays = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
 calendar_html = """
 <style>
     th, td { text-align: center; padding: 8px; font-size: 20px; }
@@ -87,7 +87,7 @@ calendar_html += "</tbody></table>"
 st.markdown(calendar_html, unsafe_allow_html=True)
 
 # --- Pet GIF + Initial Emotion Message ---
-st.header(f"Most Frequent Emotion: {most_frequent_emotion.capitalize()}")
+st.header(f"本月最常见情绪：{most_frequent_emotion.capitalize()}")
 cols = st.columns([1, 1])
 with cols[0]:
     gif_candidates = glob.glob(os.path.join(gif_dir, f"{most_frequent_emotion}*.gif"))
@@ -97,10 +97,10 @@ with cols[0]:
 
 # --- Chatting with your emotion pet ---
 st.markdown("---")
-st.subheader("💬 Talk with your Emotion Pet")
+st.subheader("💬 和你的情绪宠物聊聊天吧")
 
 # --- Clear Chat Button ---
-if st.button("🗑️ Clear Chat History"):
+if st.button("🗑️ 清除聊天记录"):
     st.session_state.chat_history = [
         {"role": "system", "content": f"你是一个活泼，有趣的比熊犬，叫Lucky。你会关注主人情绪，并帮主人化解坏情绪。记住，无情绪时请保持中立。你主人当前的情绪是{most_frequent_emotion}，你在对话中需要关注主人这个情绪，提供相应的情绪价值以及帮助。"},
         {"role": "assistant", "content": f'"{emotion_sentences[most_frequent_emotion]}"'}
