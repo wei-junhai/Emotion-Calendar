@@ -99,10 +99,10 @@ st.markdown(calendar_html, unsafe_allow_html=True)
 
 # --- Upload a photo and update emotion ---
 st.markdown("---")
-st.subheader("📤 上传照片替换某天情绪")
+st.header("📤 上传情绪照片")
 
 uploaded_file = st.file_uploader("选择一张照片（png/jpg）", type=["png", "jpg", "jpeg"])
-selected_day = st.number_input("选择要替换的日期（1-31）", min_value=1, max_value=31, step=1)
+selected_day = st.number_input("选择要情绪照片的日期（1-31）", min_value=1, max_value=31, step=1)
 
 if uploaded_file and st.button("🔄 更新情绪日历"):
     # 保存图片到 input_dir
@@ -138,6 +138,7 @@ if uploaded_file and st.button("🔄 更新情绪日历"):
 
 
 # --- Pet GIF + Initial Emotion Message ---
+st.markdown("---")
 st.header(f"本月最常见情绪：{emotion_labels_zh.get(most_frequent_emotion, '未知')}")
 cols = st.columns([1, 1])
 with cols[0]:
@@ -148,7 +149,7 @@ with cols[0]:
 
 # --- Chatting with your emotion pet ---
 st.markdown("---")
-st.subheader("💬 和你的情绪宠物聊聊天吧")
+st.header("💬 和你的情绪宠物聊聊天吧")
 
 # --- Clear Chat Button ---
 if st.button("🗑️ 清除聊天记录"):
