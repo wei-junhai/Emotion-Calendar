@@ -9,6 +9,7 @@ from fer import FER
 from collections import Counter
 from openai import OpenAI
 from io import BytesIO
+from zhipuai import ZhipuAI
 
 # --- Hide warnings ---
 warnings.filterwarnings("ignore")
@@ -17,7 +18,10 @@ warnings.filterwarnings("ignore")
 detector = FER(mtcnn=True)
 input_dir = "./tupian"
 gif_dir = "./gifs"
-client = OpenAI(api_key="sk-c3d932d36b5b4deaaf8c3c6136dc38ce", base_url="https://api.deepseek.com")
+# client = OpenAI(api_key="sk-c3d932d36b5b4deaaf8c3c6136dc38ce", base_url="https://api.deepseek.com")
+client = ZhipuAI(api_key="1e029a2bd2624e3da4c0e72b572ea42a.Ke0QfQKOaf0aBmUx")
+chat_model_id = "glm-4"
+# chat_model_id = "deepseek-chat"
 
 # --- Emotion info ---
 emotion_emojis = {
@@ -188,7 +192,7 @@ if user_input:
 
     try:
         response = client.chat.completions.create(
-            model="deepseek-chat",
+            model=chat_model_id,
             messages=st.session_state.chat_history,
             stream=False
         )
