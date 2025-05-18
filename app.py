@@ -107,6 +107,7 @@ st.header("📤 上传或拍摄情绪照片")
 upload_tab, camera_tab = st.tabs(["📁 上传图片", "📸 拍照"])
 uploaded_file = None
 camera_image = None
+
 with upload_tab:
     uploaded_file = st.file_uploader("选择一张照片（png/jpg）", type=["png", "jpg", "jpeg"])
 with camera_tab:
