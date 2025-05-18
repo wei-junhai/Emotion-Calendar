@@ -103,16 +103,27 @@ st.markdown(calendar_html, unsafe_allow_html=True)
 
 # --- Upload a photo and update emotion ---
 st.markdown("---")
-st.header("📤 上传情绪照片")
-
-uploaded_file = st.file_uploader("选择一张照片（png/jpg）", type=["png", "jpg", "jpeg"])
+st.header("📤 上传或拍摄情绪照片")
+upload_tab, camera_tab = st.tabs(["📁 上传图片", "📸 拍照"])
+uploaded_file = None
+camera_image = None
+with upload_tab:
+    uploaded_file = st.file_uploader("选择一张照片（png/jpg）", type=["png", "jpg", "jpeg"])
+with camera_tab:
+    camera_image = st.camera_input("使用摄像头拍摄一张照片")
 selected_day = st.number_input("选择要情绪照片的日期（1-31）", min_value=1, max_value=31, step=1)
 
-if uploaded_file and st.button("🔄 更新情绪日历"):
-    # 保存图片到 input_dir
+if (uploaded_file or camera_image) and st.button("🔄 更新情绪日历"):
+    if uploaded_file:
+        file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
+        img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+    elif camera_image:
+        file_bytes = np.asarray(bytearray(camera_image.read()), dtype=np.uint8)
+        img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+    else:
+        st.error("没有提供有效的图片。")
+        st.stop()
     new_img_path = os.path.join(input_dir, f"{selected_day}.png")
-    file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
-    img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
     cv2.imwrite(new_img_path, img)
 
     # 重新识别这张图片的情绪
