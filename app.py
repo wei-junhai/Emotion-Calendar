@@ -341,11 +341,8 @@ if chat_history is None or len(chat_history) == 0:
 
 # Load GIF bytes for avatar
 gif_avatar = None
-gif_candidates = glob.glob(os.path.join(gif_dir, f"{most_frequent_emotion}*.gif"))
-gif_path = random.choice(gif_candidates) if gif_candidates else None
-if gif_path and os.path.exists(gif_path):
-    with open(gif_path, "rb") as f:
-        gif_avatar = BytesIO(f.read())
+with open("./gifs/angry1.gif", "rb") as f:
+    gif_avatar = BytesIO(f.read())
 
 # Display chat history (excluding system message)
 for idx, msg in enumerate(st.session_state.chat_history[1:]):
