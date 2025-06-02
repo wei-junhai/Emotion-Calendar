@@ -8,3 +8,4 @@ tensorflow
 gspread
 oauth2client
 bcrypt
+st-gsheets-connection
