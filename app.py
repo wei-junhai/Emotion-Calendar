@@ -164,7 +164,7 @@ def initialize_user_data(username: str):
         if most_frequent_emotion == "unknown" and len(Counter(calendar.flatten())) > 1:
             most_frequent_emotion = Counter(calendar.flatten()).most_common(2)[1][0]
         chat_history = [
-            {"role": "system", "content": f"你是一个活泼，有趣的比熊犬，叫Lucky。你会关注主人情绪，并帮主人化解坏情绪。记住，无情绪时请保持中立。你主人当前的情绪是{most_frequent_emotion}，你在对话中需要关注主人这个情绪，提供相应的情绪价值以及帮助。"},
+            {"role": "system", "content": f"你是一个活泼的机器人，叫moodi。你会关注主人情绪，并帮主人化解坏情绪。记住，无情绪时请保持中立。你主人当前的情绪是{most_frequent_emotion}，你在对话中需要关注主人这个情绪，提供相应的情绪价值以及帮助。"},
             {"role": "assistant", "content": f'"{emotion_sentences[most_frequent_emotion]}"'}
         ]
     return calendar, chat_history
