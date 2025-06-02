@@ -10,6 +10,72 @@ from collections import Counter
 from openai import OpenAI
 from io import BytesIO
 from zhipuai import ZhipuAI
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+import bcrypt
+import json
+
+# --- Google Sheets Setup ---
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+credentials = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["google"], scope)
+gc = gspread.authorize(credentials)
+sheet = gc.open_by_url("https://docs.google.com/spreadsheets/d/1ihAXZ3bl82Rf3mlohzPwWmIlhkfwW-oCps3_8iOgui8/edit?usp=sharing").sheet1
+
+def find_user(username):
+    records = sheet.get_all_records()
+    for idx, row in enumerate(records, start=2):
+        if row['username'] == username:
+            return idx, row
+    return None, None
+
+def register_user(username, password):
+    if not username or not password:
+        return False, "用户名或密码不能为空"
+    _, existing = find_user(username)
+    if existing:
+        return False, "用户名已存在"
+    hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    sheet.append_row([username, hashed, "{}"])
+    return True, "注册成功"
+
+def login_user(username, password):
+    idx, user = find_user(username)
+    if not user:
+        return False, "用户不存在"
+    if bcrypt.checkpw(password.encode(), user['password'].encode()):
+        return True, user
+    return False, "密码错误"
+
+# --- Login/Register UI ---
+st.sidebar.title("🔐 用户登录")
+if "user" not in st.session_state:
+    login_tab, register_tab = st.sidebar.tabs(["登录", "注册"])
+    with login_tab:
+        login_user_input = st.text_input("用户名", key="login_user")
+        login_pass_input = st.text_input("密码", type="password", key="login_pass")
+        if st.button("登录"):
+            success, user_data = login_user(login_user_input, login_pass_input)
+            if success:
+                st.session_state.user = login_user_input
+                st.success("登录成功")
+                st.rerun()
+            else:
+                st.error(user_data)
+    with register_tab:
+        register_user_input = st.text_input("新用户名", key="register_user")
+        register_pass_input = st.text_input("新密码", type="password", key="register_pass")
+        if st.button("注册"):
+            success, msg = register_user(register_user_input, register_pass_input)
+            if success:
+                st.success(msg)
+            else:
+                st.error(msg)
+    st.stop()
+else:
+    st.sidebar.success(f"已登录：{st.session_state.user}")
+    if st.sidebar.button("退出登录"):
+        del st.session_state.user
+        st.rerun()
 
 # --- Hide warnings ---
 warnings.filterwarnings("ignore")
