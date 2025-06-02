@@ -2,7 +2,7 @@
 # 心情魔法日历 🌈🗓️
 欢迎来到“心情魔法日历”项目！这是一个基于人工智能的情绪识别系统，能够帮助你记录每日心情，并以日历的形式展示，让你更了解自己的情绪变化。
 
-👉 在线体验地址：[点我体验](https://emotion-calendar-junhai-wei.streamlit.app/)
+👉 在线体验地址：[点我体验](https://emotion-calendar-wei-junhai.streamlit.app)
 
 ## ✨ 项目功能
 
@@ -22,7 +22,7 @@
 
 ## 📁 如何使用
 
-1. 打开网页：[https://emotion-calendar-junhai-wei.streamlit.app/](https://emotion-calendar-junhai-wei.streamlit.app/)
+1. 打开网页：[https://emotion-calendar-wei-junhai.streamlit.app](https://emotion-calendar-wei-junhai.streamlit.app)
 2. 上传当天的表情图片（记得选择对应日期哦）。
 3. 查看你的专属情绪日历！
 
