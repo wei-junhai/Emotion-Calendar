@@ -168,7 +168,7 @@ def initialize_user_data(username: str):
     return calendar, chat_history
 
 # --- UI: login/register ---
-st.title("🐶 情绪宠物日历")
+st.title("🤖 情绪日历")
 
 if not st.session_state.logged_in:
     tab1, tab2 = st.tabs(["登录", "注册"])
@@ -318,7 +318,7 @@ with cols[0]:
 
 # --- Chatting with your emotion pet ---
 st.markdown("---")
-st.header("💬 和你的情绪宠物聊聊天吧")
+st.header("💬 和你的 Moodi 聊聊天吧")
 
 # --- Clear Chat Button ---
 if st.button("🗑️ 清除聊天记录"):
@@ -349,7 +349,7 @@ for idx, msg in enumerate(st.session_state.chat_history[1:]):
         st.markdown(msg["content"])
 
 # User input
-user_input = st.chat_input("对小宠物说些什么吧")
+user_input = st.chat_input("对 Moodi 说些什么吧")
 if user_input:
     st.session_state.chat_history.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
@@ -363,7 +363,7 @@ if user_input:
         )
         reply = response.choices[0].message.content
     except Exception as e:
-        reply = "Oops, something went wrong connecting to the pet brain 🧠"
+        reply = "Oops, something went wrong connecting to the robot processor 🧠"
 
     st.session_state.chat_history.append({"role": "assistant", "content": reply})
     save_user_data(username, calendar, st.session_state.chat_history)
