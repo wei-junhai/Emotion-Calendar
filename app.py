@@ -20,8 +20,7 @@ warnings.filterwarnings("ignore")
 input_dir = "./tupian"
 gif_dir = "./gifs"
 data_dir = "./userdata"  # Local storage for user data
-if not os.path.exists(data_dir):
-    os.makedirs(data_dir)
+os.makedirs(data_dir, exist_ok=True)
 
 # --- Init emotion detector and AI client ---
 detector = FER(mtcnn=True)
@@ -78,8 +77,7 @@ def load_user_data(username: str):
 
 def save_user_data(username: str, calendar, chat_history):
     user_path = get_user_path(username)
-    if not os.path.exists(user_path):
-        os.makedirs(user_path)
+    os.makedirs(user_path, exist_ok=True)
     calendar_path = os.path.join(user_path, "calendar.json")
     chat_path = os.path.join(user_path, "chat_history.json")
     with open(calendar_path, "w", encoding="utf-8") as f:
@@ -90,8 +88,7 @@ def save_user_data(username: str, calendar, chat_history):
 def save_user_image(username: str, day: int, img):
     user_path = get_user_path(username)
     img_dir = os.path.join(user_path, "images")
-    if not os.path.exists(img_dir):
-        os.makedirs(img_dir)
+    os.makedirs(img_dir, exist_ok=True)
     img_path = os.path.join(img_dir, f"{day}.png")
     cv2.imwrite(img_path, img)
     return img_path
