@@ -19,7 +19,7 @@ warnings.filterwarnings("ignore")
 # --- Directories ---
 input_dir = "./tupian"
 gif_dir = "./gifs"
-data_dir = "./userdata"  # Local storage for user data
+data_dir = "./userdata"
 os.makedirs(data_dir, exist_ok=True)
 
 # --- Init emotion detector and AI client ---
@@ -43,16 +43,10 @@ emotion_sentences = {
     "unknown": "每一天都是新的开始。"
 }
 emotion_labels_zh = {
-    "happy": "开心",
-    "sad": "伤心",
-    "angry": "生气",
-    "surprise": "惊讶",
-    "neutral": "平静",
-    "fear": "恐惧",
-    "disgust": "厌恶",
-    "unknown": "未知"
+    "happy": "开心", "sad": "伤心", "angry": "生气", "surprise": "惊讶",
+    "neutral": "平静", "fear": "恐惧", "disgust": "厌恶", "unknown": "未知"
 }
-system_prompt = "你是一个活泼的机器人，叫moodi。你会关注主人情绪，并帮主人化解坏情绪。记住，无情绪时请保持中立。你主人当前的情绪是{most_frequent_emotion}，你在对话中需要关注主人这个情绪，提供相应的情绪价值以及帮助。"
+system_prompt = "你是一个活泼的机器人，叫 Moodi。你会关注主人情绪，并帮主人化解坏情绪。记住，无情绪时请保持中立。你主人当前的情绪是{most_frequent_emotion}，你在对话中需要关注主人这个情绪，提供相应的情绪价值以及帮助。"
 
 # --- Helper functions for user data management ---
 
@@ -96,14 +90,11 @@ def save_user_image(username: str, day: int, img):
 
 def load_user_image(username: str, day: int):
     img_path = os.path.join(get_user_path(username), "images", f"{day}.png")
-    if os.path.exists(img_path):
-        return cv2.imread(img_path)
-    else:
-        return None
+    return cv2.imread(img_path) if os.path.exists(img_path) else None
 
-# --- User management: simple registration and login ---
+# --- User Management ---
 if "users" not in st.session_state:
-    st.session_state.users = {}  # username -> password_hash
+    st.session_state.users = {}
 
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
@@ -116,11 +107,10 @@ if "chat_history" not in st.session_state:
 
 def register_user(username: str, password: str):
     users_file = os.path.join(data_dir, "users.json")
+    users = {}
     if os.path.exists(users_file):
         with open(users_file, "r", encoding="utf-8") as f:
             users = json.load(f)
-    else:
-        users = {}
     if username in users:
         return False, "用户名已存在"
     users[username] = hash_password(password)
@@ -141,12 +131,9 @@ def login_user(username: str, password: str):
     return True, "登录成功"
 
 def initialize_user_data(username: str):
-    # Load calendar and chat history if exists, else init
     calendar, chat_history = load_user_data(username)
     if calendar is None:
-        # Initialize calendar with "unknown"
         calendar = np.full((5, 7), "unknown", dtype=object)
-        # Try load any existing images in user folder
         for day in range(1, 32):
             img = load_user_image(username, day)
             if img is not None:
@@ -157,17 +144,17 @@ def initialize_user_data(username: str):
                     emotion = max(result[0]["emotions"], key=result[0]["emotions"].get)
                 calendar[(day - 1) // 7, (day - 1) % 7] = emotion
     if chat_history is None:
-        # Set default chat history
         most_frequent_emotion = Counter(calendar.flatten()).most_common(1)[0][0]
         if most_frequent_emotion == "unknown" and len(Counter(calendar.flatten())) > 1:
             most_frequent_emotion = Counter(calendar.flatten()).most_common(2)[1][0]
         chat_history = [
-            {"role": "system", "content": f"你是一个活泼的机器人，叫moodi。你会关注主人情绪，并帮主人化解坏情绪。记住，无情绪时请保持中立。你主人当前的情绪是{most_frequent_emotion}，你在对话中需要关注主人这个情绪，提供相应的情绪价值以及帮助。"},
+            {"role": "system", "content": system_prompt.format(most_frequent_emotion=most_frequent_emotion)},
             {"role": "assistant", "content": f'"{emotion_sentences[most_frequent_emotion]}"'}
         ]
     return calendar, chat_history
 
-# --- UI: login/register ---
+# --- Login/Register UI ---
+st.set_page_config(page_title="情绪日历", layout="wide")
 st.title("🤖 情绪日历")
 
 if not st.session_state.logged_in:
@@ -180,8 +167,6 @@ if not st.session_state.logged_in:
             if success:
                 st.session_state.logged_in = True
                 st.session_state.username = login_username
-                st.success(msg)
-                # Load or init user data
                 calendar, chat_history = initialize_user_data(login_username)
                 st.session_state.calendar = calendar
                 st.session_state.chat_history = chat_history
@@ -205,172 +190,150 @@ if not st.session_state.logged_in:
                     st.error(msg)
     st.stop()
 
-# --- Main app after login ---
-
+# --- Main Tabs ---
 username = st.session_state.username
 calendar = st.session_state.calendar
 chat_history = st.session_state.chat_history
-
 days_in_month = 31
 
-# Calculate most frequent emotion
 emotion_counts = Counter(calendar.flatten())
 most_frequent_emotion = emotion_counts.most_common(1)[0][0]
 if most_frequent_emotion == "unknown" and len(emotion_counts) > 1:
     most_frequent_emotion = emotion_counts.most_common(2)[1][0]
 
-st.title(f"📅 {username} 的情绪日历")
+tab1, tab2, tab3 = st.tabs(["📅 情绪日历", "💬 情绪聊天", "📖 心情日记"])
 
-# --- Elegant Calendar Table ---
-weekdays = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
-calendar_html = """
-<style>
-    th, td { text-align: center; padding: 8px; font-size: 20px; }
-    table { border-collapse: collapse; width: 100%; }
-    th { background-color: #f2f2f2; }
-    td { border: 1px solid #ddd; }
-</style>
-<table><thead><tr>""" + "".join([f"<th>{day}</th>" for day in weekdays]) + "</tr></thead><tbody>"
+# --- Tab 1: Calendar ---
+with tab1:
+    st.header(f"🧭 {username} 的情绪月历")
 
-day_counter = 1
-for week in range(5):
-    calendar_html += "<tr>"
-    for weekday in range(7):
-        if day_counter <= days_in_month:
-            emoji = emotion_emojis.get(calendar[week, weekday], "❓")
-            calendar_html += f"<td>{day_counter}<br>{emoji}</td>"
-            day_counter += 1
+    weekdays = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+    calendar_html = """
+    <style>
+        th, td { text-align: center; padding: 8px; font-size: 20px; }
+        table { border-collapse: collapse; width: 100%; }
+        th { background-color: #f2f2f2; }
+        td { border: 1px solid #ddd; }
+    </style>
+    <table><thead><tr>""" + "".join([f"<th>{day}</th>" for day in weekdays]) + "</tr></thead><tbody>"
+
+    day_counter = 1
+    for week in range(5):
+        calendar_html += "<tr>"
+        for weekday in range(7):
+            if day_counter <= days_in_month:
+                emoji = emotion_emojis.get(calendar[week, weekday], "❓")
+                calendar_html += f"<td>{day_counter}<br>{emoji}</td>"
+                day_counter += 1
+            else:
+                calendar_html += "<td></td>"
+        calendar_html += "</tr>"
+    calendar_html += "</tbody></table>"
+
+    st.markdown(calendar_html, unsafe_allow_html=True)
+
+    st.subheader("📷 上传或拍照记录每日情绪")
+    upload_tab, camera_tab = st.tabs(["📁 上传图片", "📸 拍照"])
+    uploaded_file = None
+    camera_image = None
+    with upload_tab:
+        uploaded_file = st.file_uploader("选择一张照片（png/jpg）", type=["png", "jpg", "jpeg"])
+    with camera_tab:
+        camera_image = st.camera_input("拍一张照片吧")
+
+    selected_day = st.number_input("请选择日期（1-31）", min_value=1, max_value=31, step=1)
+
+    if (uploaded_file or camera_image) and st.button("🔄 更新情绪"):
+        if uploaded_file:
+            file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
+            img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+        elif camera_image:
+            file_bytes = np.asarray(bytearray(camera_image.read()), dtype=np.uint8)
+            img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
         else:
-            calendar_html += "<td></td>"
-    calendar_html += "</tr>"
-calendar_html += "</tbody></table>"
+            st.error("无效图片")
+            st.stop()
 
-st.markdown(calendar_html, unsafe_allow_html=True)
+        save_user_image(username, selected_day, img)
 
-# --- Upload a photo and update emotion ---
-st.markdown("---")
-st.header("📤 上传或拍摄情绪照片")
-upload_tab, camera_tab = st.tabs(["📁 上传图片", "📸 拍照"])
-uploaded_file = None
-camera_image = None
+        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        result = detector.detect_emotions(img_rgb)
+        emotion = "unknown"
+        if result:
+            emotion = max(result[0]["emotions"], key=result[0]["emotions"].get)
+        calendar[(selected_day - 1) // 7, (selected_day - 1) % 7] = emotion
 
-with upload_tab:
-    uploaded_file = st.file_uploader("选择一张照片（png/jpg）", type=["png", "jpg", "jpeg"])
-with camera_tab:
-    camera_image = st.camera_input("使用摄像头拍摄一张照片")
-selected_day = st.number_input("选择要情绪照片的日期（1-31）", min_value=1, max_value=31, step=1)
+        emotion_counts = Counter(calendar.flatten())
+        most_frequent_emotion = emotion_counts.most_common(1)[0][0]
+        if most_frequent_emotion == "unknown" and len(emotion_counts) > 1:
+            most_frequent_emotion = emotion_counts.most_common(2)[1][0]
 
-if (uploaded_file or camera_image) and st.button("🔄 更新情绪日历"):
-    if uploaded_file:
-        file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
-        img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-    elif camera_image:
-        file_bytes = np.asarray(bytearray(camera_image.read()), dtype=np.uint8)
-        img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-    else:
-        st.error("没有提供有效的图片。")
-        st.stop()
+        chat_history = [
+            {"role": "system", "content": system_prompt.format(most_frequent_emotion=most_frequent_emotion)},
+            {"role": "assistant", "content": f'"{emotion_sentences[most_frequent_emotion]}"'}
+        ]
 
-    # Save user image locally
-    save_user_image(username, selected_day, img)
+        st.session_state.calendar = calendar
+        st.session_state.chat_history = chat_history
+        save_user_data(username, calendar, chat_history)
 
-    # 重新识别这张图片的情绪
-    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    result = detector.detect_emotions(img_rgb)
-    emotion = "unknown"
-    if result:
-        emotion = max(result[0]["emotions"], key=result[0]["emotions"].get)
+        st.success(f"第 {selected_day} 天更新为 {emotion_labels_zh.get(emotion, '未知')} {emotion_emojis.get(emotion, '❓')}")
+        st.rerun()
 
-    # 更新 calendar 中该日期对应情绪
-    calendar[(selected_day - 1) // 7, (selected_day - 1) % 7] = emotion
-
-    # 重新计算最常见情绪
-    emotion_counts = Counter(calendar.flatten())
-    most_frequent_emotion = emotion_counts.most_common(1)[0][0]
-    if most_frequent_emotion == "unknown" and len(emotion_counts) > 1:
-        most_frequent_emotion = emotion_counts.most_common(2)[1][0]
-
-    # 更新 chat_history 的 system 提示
-    chat_history = [
-        {"role": "system", "content": system_prompt.format(most_frequent_emotion=most_frequent_emotion)},
-        {"role": "assistant", "content": f'"{emotion_sentences[most_frequent_emotion]}"'}
-    ]
-
-    st.session_state.calendar = calendar
-    st.session_state.chat_history = chat_history
-
-    # Save user data
-    save_user_data(username, calendar, chat_history)
-
-    st.success(f"第 {selected_day} 天的照片与情绪已更新为 {emotion_labels_zh.get(emotion, '未知')} {emotion_emojis.get(emotion, '❓')}")
-    st.rerun()
-
-# --- Pet GIF + Initial Emotion Message ---
-st.markdown("---")
-st.header(f"本月最常见情绪：{emotion_labels_zh.get(most_frequent_emotion, '未知')}")
-
-cols = st.columns([1, 1])
-with cols[0]:
+    st.subheader(f"🌟 本月最常见情绪：{emotion_labels_zh.get(most_frequent_emotion, '未知')}")
     gif_candidates = glob.glob(os.path.join(gif_dir, f"{most_frequent_emotion}*.gif"))
     gif_path = random.choice(gif_candidates) if gif_candidates else None
     if gif_path and os.path.exists(gif_path):
         st.image(gif_path, width=250)
 
-# --- Chatting with your emotion pet ---
-st.markdown("---")
-st.header("💬 和你的 Moodi 聊聊天吧")
+# --- Tab 2: Chat ---
+with tab2:
+    st.header("🗣️ 和 Moodi 聊聊天")
 
-# --- Clear Chat Button ---
-if st.button("🗑️ 清除聊天记录"):
-    chat_history = [
-        {"role": "system", "content": system_prompt.format(most_frequent_emotion=most_frequent_emotion)},
-        {"role": "assistant", "content": f'"{emotion_sentences[most_frequent_emotion]}"'}
-    ]
-    st.session_state.chat_history = chat_history
-    save_user_data(username, calendar, chat_history)
-    st.rerun()
+    if st.button("🗑️ 清除聊天记录"):
+        chat_history = [
+            {"role": "system", "content": system_prompt.format(most_frequent_emotion=most_frequent_emotion)},
+            {"role": "assistant", "content": f'"{emotion_sentences[most_frequent_emotion]}"'}
+        ]
+        st.session_state.chat_history = chat_history
+        save_user_data(username, calendar, chat_history)
+        st.rerun()
 
-if chat_history is None or len(chat_history) == 0:
-    chat_history = [
-        {"role": "system", "content": system_prompt.format(most_frequent_emotion=most_frequent_emotion)},
-        {"role": "assistant", "content": f'"{emotion_sentences[most_frequent_emotion]}"'}
-    ]
-    st.session_state.chat_history = chat_history
+    gif_avatar = None
+    with open("./gifs/angry1.gif", "rb") as f:
+        gif_avatar = BytesIO(f.read())
 
-# Load GIF bytes for avatar
-gif_avatar = None
-with open("./gifs/angry1.gif", "rb") as f:
-    gif_avatar = BytesIO(f.read())
+    for msg in st.session_state.chat_history[1:]:
+        with st.chat_message(msg["role"], avatar=gif_avatar if msg["role"] == "assistant" else None):
+            st.markdown(msg["content"])
 
-# Display chat history (excluding system message)
-for idx, msg in enumerate(st.session_state.chat_history[1:]):
-    avatar = gif_avatar if msg["role"] == "assistant" else None
-    with st.chat_message(msg["role"], avatar=avatar):
-        st.markdown(msg["content"])
+    user_input = st.chat_input("说点什么吧")
+    if user_input:
+        st.session_state.chat_history.append({"role": "user", "content": user_input})
+        with st.chat_message("user"):
+            st.markdown(user_input)
 
-# User input
-user_input = st.chat_input("对 Moodi 说些什么吧")
-if user_input:
-    st.session_state.chat_history.append({"role": "user", "content": user_input})
-    with st.chat_message("user"):
-        st.markdown(user_input)
+        try:
+            response = client.chat.completions.create(
+                model=chat_model_id,
+                messages=st.session_state.chat_history,
+                stream=False
+            )
+            reply = response.choices[0].message.content
+        except Exception:
+            reply = "机器人处理器出错了，请稍后再试 🧠"
 
-    try:
-        response = client.chat.completions.create(
-            model=chat_model_id,
-            messages=st.session_state.chat_history,
-            stream=False
-        )
-        reply = response.choices[0].message.content
-    except Exception as e:
-        reply = "Oops, something went wrong connecting to the robot processor 🧠"
+        st.session_state.chat_history.append({"role": "assistant", "content": reply})
+        save_user_data(username, calendar, st.session_state.chat_history)
+        with st.chat_message("assistant", avatar=gif_avatar):
+            st.markdown(reply)
 
-    st.session_state.chat_history.append({"role": "assistant", "content": reply})
-    save_user_data(username, calendar, st.session_state.chat_history)
-    with st.chat_message("assistant", avatar=gif_avatar):
-        st.markdown(reply)
+# --- Tab 3: Diary (Coming Soon) ---
+with tab3:
+    st.header("📝 心情日记")
+    st.markdown("日记功能开发中...")
 
-# --- Logout button ---
+# --- Logout ---
 st.markdown("---")
 if st.button("退出登录"):
     st.session_state.logged_in = False
