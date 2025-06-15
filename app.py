@@ -52,6 +52,7 @@ emotion_labels_zh = {
     "disgust": "厌恶",
     "unknown": "未知"
 }
+system_prompt = "你是一个活泼的机器人，叫moodi。你会关注主人情绪，并帮主人化解坏情绪。记住，无情绪时请保持中立。你主人当前的情绪是{most_frequent_emotion}，你在对话中需要关注主人这个情绪，提供相应的情绪价值以及帮助。"
 
 # --- Helper functions for user data management ---
 
@@ -291,7 +292,7 @@ if (uploaded_file or camera_image) and st.button("🔄 更新情绪日历"):
 
     # 更新 chat_history 的 system 提示
     chat_history = [
-        {"role": "system", "content": f"你是一个活泼，有趣的比熊犬，叫Lucky。你会关注主人情绪，并帮主人化解坏情绪。记住，无情绪时请保持中立。你主人当前的情绪是{most_frequent_emotion}，你在对话中需要关注主人这个情绪，提供相应的情绪价值以及帮助。"},
+        {"role": "system", "content": system_prompt.format(most_frequent_emotion=most_frequent_emotion)},
         {"role": "assistant", "content": f'"{emotion_sentences[most_frequent_emotion]}"'}
     ]
 
@@ -322,7 +323,7 @@ st.header("💬 和你的情绪宠物聊聊天吧")
 # --- Clear Chat Button ---
 if st.button("🗑️ 清除聊天记录"):
     chat_history = [
-        {"role": "system", "content": f"你是一个活泼，有趣的比熊犬，叫Lucky。你会关注主人情绪，并帮主人化解坏情绪。记住，无情绪时请保持中立。你主人当前的情绪是{most_frequent_emotion}，你在对话中需要关注主人这个情绪，提供相应的情绪价值以及帮助。"},
+        {"role": "system", "content": system_prompt.format(most_frequent_emotion=most_frequent_emotion)},
         {"role": "assistant", "content": f'"{emotion_sentences[most_frequent_emotion]}"'}
     ]
     st.session_state.chat_history = chat_history
@@ -331,7 +332,7 @@ if st.button("🗑️ 清除聊天记录"):
 
 if chat_history is None or len(chat_history) == 0:
     chat_history = [
-        {"role": "system", "content": f"你是一个活泼，有趣的比熊犬，叫Lucky。你会关注主人情绪，并帮主人化解坏情绪。记住，无情绪时请保持中立。你主人当前的情绪是{most_frequent_emotion}，你在对话中需要关注主人这个情绪，提供相应的情绪价值以及帮助。"},
+        {"role": "system", "content": system_prompt.format(most_frequent_emotion=most_frequent_emotion)},
         {"role": "assistant", "content": f'"{emotion_sentences[most_frequent_emotion]}"'}
     ]
     st.session_state.chat_history = chat_history
