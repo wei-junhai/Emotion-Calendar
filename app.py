@@ -24,7 +24,7 @@ os.makedirs(data_dir, exist_ok=True)
 
 # --- Init emotion detector and AI client ---
 detector = FER(mtcnn=True)
-client = ZhipuAI(api_key="1e029a2bd2624e3da4c0e72b572ea42a.Ke0QfQKOaf0aBmUx")
+client = ZhipuAI(api_key="1221554b5a3c4965b546469e2658325b.XHvRHc8OPg4ZGyNf")
 chat_model_id = "glm-4"
 
 # --- Emotion info ---
@@ -328,10 +328,58 @@ with tab2:
         with st.chat_message("assistant", avatar=gif_avatar):
             st.markdown(reply)
 
-# --- Tab 3: Diary (Coming Soon) ---
+# --- Tab 3: Diary ---
 with tab3:
     st.header("📝 心情日记")
-    st.markdown("日记功能开发中...")
+
+    from datetime import datetime
+    this_month = datetime.today().month  # 当前月份
+    today = datetime.today().day        # 今天几号
+
+    # --- Diary state ---
+    if "diary_day" not in st.session_state:
+        st.session_state.diary_day = today
+    if "diary" not in st.session_state:
+        user_path = get_user_path(username)
+        diary_path = os.path.join(user_path, "diary.json")
+        if os.path.exists(diary_path):
+            with open(diary_path, "r", encoding="utf-8") as f:
+                st.session_state.diary = json.load(f)
+        else:
+            st.session_state.diary = {}
+
+    diary = st.session_state.diary
+    current_day = st.session_state.diary_day
+
+    # 🔑 Use current_day for display
+    st.subheader(f"📅 {this_month}月{current_day}日的日记")
+
+    # Load existing content for this page
+    current_text = diary.get(str(current_day), "")
+
+    # Text input area (auto-save on change)
+    text = st.text_area("写下今天的心情吧：", value=current_text, height=200, key=f"diary_{current_day}")
+
+    # Auto-save if changed
+    if text != current_text:
+        diary[str(current_day)] = text
+        user_path = get_user_path(username)
+        os.makedirs(user_path, exist_ok=True)
+        diary_path = os.path.join(user_path, "diary.json")
+        with open(diary_path, "w", encoding="utf-8") as f:
+            json.dump(diary, f, ensure_ascii=False, indent=2)
+        st.toast("日记已自动保存 ✅", icon="💾")
+
+    # Navigation buttons = 昨天 / 明天
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("⬅️ 上一天") and current_day > 1:
+            st.session_state.diary_day -= 1
+            st.rerun()
+    with col2:
+        if st.button("➡️ 下一天") and current_day < days_in_month:
+            st.session_state.diary_day += 1
+            st.rerun()
 
 # --- Logout ---
 st.markdown("---")
