@@ -27,7 +27,7 @@ prompt_path = "./prompt.md"
 
 # --- Init emotion detector and AI client ---
 detector = FER(mtcnn=True)
-client = ZhipuAI(api_key="1e029a2bd2624e3da4c0e72b572ea42a.Ke0QfQKOaf0aBmUx")
+client = ZhipuAI(api_key="1221554b5a3c4965b546469e2658325b.XHvRHc8OPg4ZGyNf")
 chat_model_id = "glm-4"
 
 # --- Emotion info ---
@@ -373,9 +373,10 @@ with tab3:
     st.header("📝 心情日记")
 
     from datetime import datetime
-    this_month = datetime.today().month
-    today = datetime.today().day
+    this_month = datetime.today().month  # 当前月份
+    today = datetime.today().day        # 今天几号
 
+    # --- Diary state ---
     if "diary_day" not in st.session_state:
         st.session_state.diary_day = today
     if "diary" not in st.session_state:
@@ -390,11 +391,16 @@ with tab3:
     diary = st.session_state.diary
     current_day = st.session_state.diary_day
 
+    # 🔑 Use current_day for display
     st.subheader(f"📅 {this_month}月{current_day}日的日记")
 
+    # Load existing content for this page
     current_text = diary.get(str(current_day), "")
+
+    # Text input area (auto-save on change)
     text = st.text_area("写下今天的心情吧：", value=current_text, height=200, key=f"diary_{current_day}")
 
+    # Auto-save if changed
     if text != current_text:
         diary[str(current_day)] = text
         user_path = get_user_path(username)
@@ -404,6 +410,7 @@ with tab3:
             json.dump(diary, f, ensure_ascii=False, indent=2)
         st.toast("日记已自动保存 ✅", icon="💾")
 
+    # Navigation buttons = 昨天 / 明天
     col1, col2 = st.columns(2)
     with col1:
         if st.button("⬅️ 上一天") and current_day > 1:
