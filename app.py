@@ -22,6 +22,9 @@ gif_dir = "./gifs"
 data_dir = "./userdata"
 os.makedirs(data_dir, exist_ok=True)
 
+# ✅ NEW: Prompt file path
+prompt_path = "./prompt.md"
+
 # --- Init emotion detector and AI client ---
 detector = FER(mtcnn=True)
 client = ZhipuAI(api_key="1e029a2bd2624e3da4c0e72b572ea42a.Ke0QfQKOaf0aBmUx")
@@ -46,7 +49,41 @@ emotion_labels_zh = {
     "happy": "开心", "sad": "伤心", "angry": "生气", "surprise": "惊讶",
     "neutral": "平静", "fear": "恐惧", "disgust": "厌恶", "unknown": "未知"
 }
-system_prompt = "你是一个活泼的机器人，叫 Moodi。你会关注主人情绪，并帮主人化解坏情绪。记住，无情绪时请保持中立。你主人当前的情绪是{most_frequent_emotion}，你在对话中需要关注主人这个情绪，提供相应的情绪价值以及帮助。"
+
+# ✅ NEW: Read prompt.md as system prompt template (with cache)
+@st.cache_data(show_spinner=False)
+def load_system_prompt_template(path: str) -> str:
+    """
+    Load prompt template from local markdown file.
+    Supports python str.format placeholders, e.g. {most_frequent_emotion}.
+    """
+    if not os.path.exists(path):
+        # Fallback: keep your original template to avoid app crash
+        return (
+            "你是一个活泼的机器人，叫 Moodi。你会关注主人情绪，并帮主人化解坏情绪。"
+            "记住，无情绪时请保持中立。你主人当前的情绪是{most_frequent_emotion}，"
+            "你在对话中需要关注主人这个情绪，提供相应的情绪价值以及帮助。"
+        )
+    with open(path, "r", encoding="utf-8") as f:
+        return f.read().strip()
+
+system_prompt_template = load_system_prompt_template(prompt_path)
+
+def build_system_prompt(most_frequent_emotion: str) -> str:
+    """
+    Render the system prompt from template using python format().
+    Keep it robust even if template contains unknown placeholders.
+    """
+    try:
+        return system_prompt_template.format(most_frequent_emotion=most_frequent_emotion)
+    except KeyError as e:
+        # If prompt.md contains placeholders you didn't provide, don't crash:
+        # just append a note + still include the critical variable.
+        return (
+            system_prompt_template
+            + "\n\n"
+            + f"（提示：prompt.md 中存在未提供的占位符：{e}。当前 most_frequent_emotion={most_frequent_emotion}）"
+        )
 
 # --- Helper functions for user data management ---
 
@@ -143,12 +180,15 @@ def initialize_user_data(username: str):
                 if result:
                     emotion = max(result[0]["emotions"], key=result[0]["emotions"].get)
                 calendar[(day - 1) // 7, (day - 1) % 7] = emotion
+
     if chat_history is None:
         most_frequent_emotion = Counter(calendar.flatten()).most_common(1)[0][0]
         if most_frequent_emotion == "unknown" and len(Counter(calendar.flatten())) > 1:
             most_frequent_emotion = Counter(calendar.flatten()).most_common(2)[1][0]
+
+        # ✅ CHANGED: use prompt.md template as system prompt
         chat_history = [
-            {"role": "system", "content": system_prompt.format(most_frequent_emotion=most_frequent_emotion)},
+            {"role": "system", "content": build_system_prompt(most_frequent_emotion)},
             {"role": "assistant", "content": f'"{emotion_sentences[most_frequent_emotion]}"'}
         ]
     return calendar, chat_history
@@ -206,7 +246,6 @@ tab1, tab2, tab3 = st.tabs(["📅 情绪日历", "💬 情绪聊天", "📖 心�
 # --- Tab 1: Calendar ---
 with tab1:
     st.header(f"🧭 {username} 的情绪月历")
-
     weekdays = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
     calendar_html = """
     <style>
@@ -229,7 +268,6 @@ with tab1:
                 calendar_html += "<td></td>"
         calendar_html += "</tr>"
     calendar_html += "</tbody></table>"
-
     st.markdown(calendar_html, unsafe_allow_html=True)
 
     st.subheader("📷 上传或拍照记录每日情绪")
@@ -268,8 +306,9 @@ with tab1:
         if most_frequent_emotion == "unknown" and len(emotion_counts) > 1:
             most_frequent_emotion = emotion_counts.most_common(2)[1][0]
 
+        # ✅ CHANGED: reset chat history using prompt.md template
         chat_history = [
-            {"role": "system", "content": system_prompt.format(most_frequent_emotion=most_frequent_emotion)},
+            {"role": "system", "content": build_system_prompt(most_frequent_emotion)},
             {"role": "assistant", "content": f'"{emotion_sentences[most_frequent_emotion]}"'}
         ]
 
@@ -291,8 +330,9 @@ with tab2:
     st.header("🗣️ 和 Moodi 聊聊天")
 
     if st.button("🗑️ 清除聊天记录"):
+        # ✅ CHANGED: reset with prompt.md template
         chat_history = [
-            {"role": "system", "content": system_prompt.format(most_frequent_emotion=most_frequent_emotion)},
+            {"role": "system", "content": build_system_prompt(most_frequent_emotion)},
             {"role": "assistant", "content": f'"{emotion_sentences[most_frequent_emotion]}"'}
         ]
         st.session_state.chat_history = chat_history
@@ -328,10 +368,51 @@ with tab2:
         with st.chat_message("assistant", avatar=gif_avatar):
             st.markdown(reply)
 
-# --- Tab 3: Diary (Coming Soon) ---
+# --- Tab 3: Diary ---
 with tab3:
     st.header("📝 心情日记")
-    st.markdown("日记功能开发中...")
+
+    from datetime import datetime
+    this_month = datetime.today().month
+    today = datetime.today().day
+
+    if "diary_day" not in st.session_state:
+        st.session_state.diary_day = today
+    if "diary" not in st.session_state:
+        user_path = get_user_path(username)
+        diary_path = os.path.join(user_path, "diary.json")
+        if os.path.exists(diary_path):
+            with open(diary_path, "r", encoding="utf-8") as f:
+                st.session_state.diary = json.load(f)
+        else:
+            st.session_state.diary = {}
+
+    diary = st.session_state.diary
+    current_day = st.session_state.diary_day
+
+    st.subheader(f"📅 {this_month}月{current_day}日的日记")
+
+    current_text = diary.get(str(current_day), "")
+    text = st.text_area("写下今天的心情吧：", value=current_text, height=200, key=f"diary_{current_day}")
+
+    if text != current_text:
+        diary[str(current_day)] = text
+        user_path = get_user_path(username)
+        os.makedirs(user_path, exist_ok=True)
+        diary_path = os.path.join(user_path, "diary.json")
+        with open(diary_path, "w", encoding="utf-8") as f:
+            json.dump(diary, f, ensure_ascii=False, indent=2)
+        st.toast("日记已自动保存 ✅", icon="💾")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("⬅️ 上一天") and current_day > 1:
+            st.session_state.diary_day -= 1
+            st.rerun()
+    with col2:
+        if st.button("➡️ 下一天") and current_day < days_in_month:
+            st.session_state.diary_day += 1
+            st.rerun()
 
 # --- Logout ---
 st.markdown("---")
