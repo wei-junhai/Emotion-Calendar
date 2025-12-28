@@ -12,6 +12,7 @@ from io import BytesIO
 from zhipuai import ZhipuAI
 import hashlib
 import json
+from datetime import datetime
 
 # --- Hide warnings ---
 warnings.filterwarnings("ignore")
@@ -27,8 +28,41 @@ prompt_path = "./prompt.md"
 
 # --- Init emotion detector and AI client ---
 detector = FER(mtcnn=True)
-client = ZhipuAI(api_key="1221554b5a3c4965b546469e2658325b.XHvRHc8OPg4ZGyNf")
+client = ZhipuAI(api_key="27a489ed5d3446d4936627b2431cf051.muqrdn3HJ6aoT8zv")
 chat_model_id = "glm-4"
+BOT_NAME = "MOODI"
+
+DIARY_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "write_diary",
+            "description": "Write/append a diary entry for a given day (1-31) for the current logged-in user.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "day": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 31,
+                        "description": "Which day of the month to write the diary for."
+                    },
+                    "text": {
+                        "type": "string",
+                        "description": "Diary text to write."
+                    },
+                    "mode": {
+                        "type": "string",
+                        "enum": ["append", "replace"],
+                        "description": "append adds to existing entry; replace overwrites it.",
+                        "default": "append"
+                    }
+                },
+                "required": ["day", "text"]
+            }
+        }
+    }
+]
 
 # --- Emotion info ---
 emotion_emojis = {
@@ -59,6 +93,7 @@ def load_system_prompt_template(path: str) -> str:
     """
     if not os.path.exists(path):
         # Fallback: keep your original template to avoid app crash
+        print(f"[WARN] Prompt template file not found at: {path}, using default template.")
         return (
             "你是一个活泼的机器人，叫 Moodi。你会关注主人情绪，并帮主人化解坏情绪。"
             "记住，无情绪时请保持中立。你主人当前的情绪是{most_frequent_emotion}，"
@@ -75,14 +110,13 @@ def build_system_prompt(most_frequent_emotion: str) -> str:
     Keep it robust even if template contains unknown placeholders.
     """
     try:
-        return system_prompt_template.format(most_frequent_emotion=most_frequent_emotion)
+        return system_prompt_template.format(most_frequent_emotion=most_frequent_emotion, bot_name=BOT_NAME, today=datetime.today().day)
     except KeyError as e:
-        # If prompt.md contains placeholders you didn't provide, don't crash:
-        # just append a note + still include the critical variable.
+        print(f"[WARN] Missing placeholder in prompt template: {e}")
         return (
             system_prompt_template
             + "\n\n"
-            + f"（提示：prompt.md 中存在未提供的占位符：{e}。当前 most_frequent_emotion={most_frequent_emotion}）"
+            + f"（提示：prompt.md 中存在未提供的占位符：{e}。当前 most_frequent_emotion={most_frequent_emotion}, bot_name={BOT_NAME}, today={datetime.today().day}.）"
         )
 
 # --- Helper functions for user data management ---
@@ -192,6 +226,48 @@ def initialize_user_data(username: str):
             {"role": "assistant", "content": f'"{emotion_sentences[most_frequent_emotion]}"'}
         ]
     return calendar, chat_history
+
+def get_diary_path(username: str) -> str:
+    user_path = get_user_path(username)
+    os.makedirs(user_path, exist_ok=True)
+    return os.path.join(user_path, "diary.json")
+
+def load_user_diary(username: str) -> dict:
+    diary_path = get_diary_path(username)
+    if os.path.exists(diary_path):
+        with open(diary_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+def save_user_diary(username: str, diary: dict) -> None:
+    diary_path = get_diary_path(username)
+    with open(diary_path, "w", encoding="utf-8") as f:
+        json.dump(diary, f, ensure_ascii=False, indent=2)
+
+def write_diary_entry(username: str, day: int, text: str, mode: str = "append") -> str:
+    """
+    mode: 'append' or 'replace'
+    Returns the updated entry for that day.
+    """
+    day = int(day)
+    if day < 1 or day > 31:
+        raise ValueError("day must be between 1 and 31")
+
+    diary = load_user_diary(username)
+    key = str(day)
+    old = (diary.get(key) or "").strip()
+    new = (text or "").strip()
+
+    if not new:
+        raise ValueError("text cannot be empty")
+
+    if mode == "replace" or not old:
+        diary[key] = new
+    else:
+        diary[key] = (old + "\n\n" + new).strip()
+
+    save_user_diary(username, diary)
+    return diary[key]
 
 # --- Login/Register UI ---
 st.set_page_config(page_title="情绪日历", layout="wide")
@@ -353,15 +429,75 @@ with tab2:
         with st.chat_message("user"):
             st.markdown(user_input)
 
-        try:
-            response = client.chat.completions.create(
-                model=chat_model_id,
-                messages=st.session_state.chat_history,
-                stream=False
-            )
-            reply = response.choices[0].message.content
-        except Exception:
-            reply = "机器人处理器出错了，请稍后再试 🧠"
+            def default_day():
+                return datetime.today().day
+
+            try:
+                # 1) call model with tools enabled
+                response = client.chat.completions.create(
+                    model=chat_model_id,
+                    messages=st.session_state.chat_history,
+                    tools=DIARY_TOOLS,
+                    tool_choice="auto",
+                    stream=False
+                )
+
+                assistant_msg = response.choices[0].message
+                tool_calls = getattr(assistant_msg, "tool_calls", None) or []
+
+                # We will store the assistant content (if any) in history
+                # Note: sometimes assistants may return empty content when they intend tool calling.
+                assistant_text = assistant_msg.content or ""
+
+                # 2) If tool calls exist, execute them locally
+                if tool_calls:
+                    # Append assistant message first (so the conversation reflects what model did)
+                    st.session_state.chat_history.append({"role": "assistant", "content": assistant_text})
+
+                    for tc in tool_calls:
+                        fn_name = tc.function.name
+                        fn_args = json.loads(tc.function.arguments or "{}")
+
+                        if fn_name == "write_diary":
+                            day = int(fn_args.get("day", default_day()))
+                            text = fn_args.get("text", "")
+                            mode = fn_args.get("mode", "append")
+
+                            updated_entry = write_diary_entry(username, day, text, mode=mode)
+                            st.toast(f"已写入日记：{day}号 ✅", icon="📖")
+                            st.rerun()
+
+                            # Keep Tab3 in sync (optional but nice)
+                            st.session_state.diary = load_user_diary(username)
+                            st.session_state.diary_day = day
+
+                            # Add a tool result message so the model can respond naturally
+                            st.session_state.chat_history.append({
+                                "role": "tool",
+                                "tool_call_id": tc.id,
+                                "name": "write_diary",
+                                "content": json.dumps({
+                                    "ok": True,
+                                    "day": day,
+                                    "mode": mode,
+                                    "saved_chars": len(updated_entry)
+                                }, ensure_ascii=False)
+                            })
+
+                    # 3) Call model again to generate a human-friendly follow-up
+                    follow_up = client.chat.completions.create(
+                        model=chat_model_id,
+                        messages=st.session_state.chat_history,
+                        stream=False
+                    )
+                    reply = follow_up.choices[0].message.content
+
+                else:
+                    # No tool call; just normal reply
+                    reply = assistant_text
+
+            except Exception as e:
+                reply = "机器人处理器出错了，请稍后再试 🧠"
 
         st.session_state.chat_history.append({"role": "assistant", "content": reply})
         save_user_data(username, calendar, st.session_state.chat_history)
